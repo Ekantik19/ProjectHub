@@ -208,3 +208,100 @@ else:
         c6.metric("Price after hold", f"${price_after_sim:.2f}")
 
 # Persons 2 and 3 add their panels below this line
+
+st.markdown('---')
+st.header("Panel 3 — Risk vs Return")
+
+import plotly.graph_objects as go
+
+fig3 = go.Figure()
+
+# Main scatter
+fig3.add_trace(go.Scatter(
+    x=df["modified_duration"],
+    y=df["total_HPR"] * 100,
+    mode='markers',
+    marker=dict(
+        size=7,
+        color=df["maturity"],
+        colorscale='Viridis',
+        showscale=True,
+        colorbar=dict(title="Maturity (Y)")
+    ),
+    hovertemplate=
+    "Maturity: %{marker.color:.2f}Y<br>" +
+    "Duration: %{x:.2f}<br>" +
+    "HPR: %{y:.2f}%<extra></extra>",
+    showlegend=False
+))
+
+# Sweet Spot (purple star)
+fig3.add_trace(go.Scatter(
+    x=[sweetspot_row["modified_duration"]],
+    y=[sweetspot_row["total_HPR"] * 100],
+    mode='markers+text',
+    marker=dict(color='purple', size=16, symbol='star'),
+    text=[f"Sweet Spot ({sweetspot_row['maturity']:.2f}Y)"],
+    textposition="top center",
+    name="Sweet Spot"
+))
+
+# Max HPR (red diamond)
+fig3.add_trace(go.Scatter(
+    x=[optimal_row["modified_duration"]],
+    y=[optimal_row["total_HPR"] * 100],
+    mode='markers+text',
+    marker=dict(color='red', size=14, symbol='diamond'),
+    text=[f"Max HPR ({optimal_row['maturity']:.2f}Y)"],
+    textposition="top center",
+    name="Max HPR"
+))
+
+fig3.update_layout(
+    xaxis_title="Modified Duration (Risk)",
+    yaxis_title="Total HPR (%)",
+    height=420
+)
+
+st.plotly_chart(fig3, use_container_width=True)
+
+st.markdown('---')
+st.header("Panel 4 — Duration and Risk Table")
+
+# Select only columns that exist
+table_df = df[[
+    "maturity",
+    "carry_return",
+    "roll_down_return",
+    "total_HPR",
+    "macaulay_duration",
+    "modified_duration"
+]].copy()
+
+# Rename columns
+table_df.columns = [
+    "Maturity (Y)",
+    "Carry",
+    "Roll-Down",
+    "Total HPR",
+    "Mac. Duration",
+    "Mod. Duration"
+]
+
+# Convert to %
+for col in ["Carry", "Roll-Down", "Total HPR"]:
+    table_df[col] = (table_df[col] * 100).round(4).astype(str) + "%"
+
+# Round remaining
+for col in ["Maturity (Y)", "Mac. Duration", "Mod. Duration"]:
+    table_df[col] = table_df[col].round(4)
+
+# Filter to actual maturities
+mask = table_df["Maturity (Y)"].apply(
+    lambda x: any(abs(x - m) < 0.15 for m in ACTUAL_MATURITIES)
+)
+
+table_df = table_df[mask].reset_index(drop=True)
+
+# Show table
+st.dataframe(table_df, use_container_width=True, height=420)
