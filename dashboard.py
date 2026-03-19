@@ -14,6 +14,18 @@ from core import (
 
 
 st.set_page_config(page_title="Roll-Down Optimizer", layout="wide")
+st.markdown("""
+<style>
+    .block-container {
+        padding-top: 2rem;
+    }
+
+    h2 {
+        border-bottom: 1px solid #444;
+        padding-bottom: 6px;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 
 with st.sidebar:
@@ -52,8 +64,8 @@ sweetspot_row = df.loc[df["roll_per_dur"].idxmax()]
 optimal_maturity = float(optimal_row["maturity"])
 sweetspot_maturity = float(sweetspot_row["maturity"])
 
-
 st.title("Roll-Down Strategy Optimizer")
+st.caption("US Treasury yield curve analysis. Adjust the holding period in the sidebar to update all panels.")
 
 # PANEL 1 — Yield Curve
 st.header("Panel 1 — Yield Curve")
@@ -93,6 +105,7 @@ fig1.update_layout(
 
 st.plotly_chart(fig1, use_container_width=True)
 
+st.caption("The curve slopes upward since longer maturities yield more. This yield difference between maturities is what the roll-down strategy captures as price gain.")
 # PANEL 2 — HPR Breakdown + P&L Simulator
 st.header("Panel 2 — HPR Breakdown & P&L Simulator")
 
@@ -152,6 +165,7 @@ fig2.update_layout(
 )
 
 st.plotly_chart(fig2, use_container_width=True)
+st.caption(f"Optimal bond for raw return: {optimal_maturity:.1f}Y. Risk-adjusted sweet spot: {sweetspot_maturity:.1f}Y. Both update as you move the holding period slider.")
 
 st.subheader("P&L Simulator")
 if selected_maturity <= H:
@@ -212,8 +226,6 @@ else:
 st.markdown('---')
 st.header("Panel 3 — Risk vs Return")
 
-import plotly.graph_objects as go
-
 fig3 = go.Figure()
 
 # Main scatter
@@ -264,6 +276,7 @@ fig3.update_layout(
 )
 
 st.plotly_chart(fig3, use_container_width=True)
+st.caption("Dots further right carry more interest rate risk. The sweet spot gives the best roll-down return per unit of duration riska smarter choice than simply chasing the highest HPR.")
 
 st.markdown('---')
 st.header("Panel 4 — Duration and Risk Table")
@@ -275,7 +288,9 @@ table_df = df[[
     "roll_down_return",
     "total_HPR",
     "macaulay_duration",
-    "modified_duration"
+    "modified_duration",
+    "approx_%ΔP_1bp",
+    "approx_$ΔP_1bp",
 ]].copy()
 
 # Rename columns
@@ -285,7 +300,9 @@ table_df.columns = [
     "Roll-Down",
     "Total HPR",
     "Mac. Duration",
-    "Mod. Duration"
+    "Mod. Duration",
+    "DV01 (%)",
+    "DV01 ($)",
 ]
 
 # Convert to %
@@ -293,8 +310,11 @@ for col in ["Carry", "Roll-Down", "Total HPR"]:
     table_df[col] = (table_df[col] * 100).round(4).astype(str) + "%"
 
 # Round remaining
-for col in ["Maturity (Y)", "Mac. Duration", "Mod. Duration"]:
+for col in ["Maturity (Y)", "Mac. Duration", "Mod. Duration", "DV01 (%)", "DV01 ($)"]:
     table_df[col] = table_df[col].round(4)
+
+table_df["DV01 (%)"] = table_df["DV01 (%)"].round(6)
+table_df["DV01 ($)"] = table_df["DV01 ($)"].round(4)
 
 # Filter to actual maturities
 mask = table_df["Maturity (Y)"].apply(
@@ -305,3 +325,5 @@ table_df = table_df[mask].reset_index(drop=True)
 
 # Show table
 st.dataframe(table_df, use_container_width=True, height=420)
+st.caption("DV01 ($) is the dollar change in your bond's price if yields move by 1 basis point (0.01%). A negative value means the price falls when yields rise.")
+
